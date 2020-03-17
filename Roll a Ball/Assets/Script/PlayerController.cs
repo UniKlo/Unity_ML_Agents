@@ -7,14 +7,17 @@ using MLAgents;
 public class PlayerController : Agent
 {
     private Rigidbody rb;
-	public float speed;
+    public float speed;
     private int count;
-    public Text countText;
-    public Text winText;
-
+    public GameObject ground;
     public GameObject[] pick_up;
     public GameObject[] prefabs;
 
+    private Vector3 ball_position;
+    private Vector3 diff;
+    private int total_gem = 7;
+
+    // private float add_part;
 
     //IFloatProperties m_ResetParams;
 
@@ -22,22 +25,35 @@ public class PlayerController : Agent
     {
         Debug.Log("This is a new game!");
         count = 0;
-        SetCountText();
-        winText.text = "";
         rb = GetComponent<Rigidbody>();
-        //prefabs = Resources.LoadAll<GameObject>("prefabs");
-        //m_ResetParams = Academy.Instance.FloatProperties;
 
     }
 
-    public override void CollectObservations() //28
+    public override void CollectObservations() //22
     {
+        // player rotation
         AddVectorObs(gameObject.transform.rotation.z); //1
         AddVectorObs(gameObject.transform.rotation.x); //1
-        AddVectorObs(gameObject.transform.position.z); //1
-        AddVectorObs(gameObject.transform.position.x); //1
-        foreach (GameObject go in pick_up) // 21 = 3 * 7 
-            AddVectorObs(go.transform.position);
+
+        // player position
+        ball_position = gameObject.transform.position;
+        AddVectorObs(ball_position.z); //1
+        AddVectorObs(ball_position.x); //1
+
+        // whether pickup is avtive and its relative position to the player
+        foreach (GameObject go in pick_up) //14 = 2 * 7
+        {
+            //AddVectorObs(go.activeSelf);
+            if (go.activeSelf == true)
+                diff = ball_position - go.transform.position;
+            else
+                diff = Vector3.zero;
+            AddVectorObs(diff.x);
+            AddVectorObs(diff.z);
+        }
+        //Debug.Log("count:" + count);
+        AddVectorObs(total_gem - count); //1
+        // player velocity
         AddVectorObs(rb.velocity); // 3
     }
 
@@ -50,16 +66,16 @@ public class PlayerController : Agent
 
         rb.AddForce(Vector3.right * speed * actionX);
 
-        SetReward(-0.005f);
-        Debug.Log("score:" + GetCumulativeReward());
+        AddReward(-0.001f);
+
     }
 
     public override void AgentReset()
     {
-        
-        gameObject.transform.position = Vector3.zero;
+
+        gameObject.transform.position = ground.transform.position + new Vector3(0, 1, 1);
+        //Debug.Log("ground position: " + gameObject.transform.position);
         rb.velocity = Vector3.zero;
-        winText.text = "";
         count = 0;
 
         foreach (GameObject go in pick_up)
@@ -84,20 +100,42 @@ public class PlayerController : Agent
         {
             count += 1;
             other.gameObject.SetActive(false);
-            SetCountText();
-            SetReward(1f);
-            
+            CheckCount(count);
+
         }
+
     }
-    void SetCountText ()
+    void CheckCount(int count)
     {
-        countText.text = "Count: " + count.ToString();
+        // add_part = count - GetCumulativeReward();
+        //Debug.Log("This is total"+ GetCumulativeReward() + " Part: " + add_part);
+        AddReward(1f);
+
+        //Debug.Log("score:" + GetCumulativeReward());
         if (count >= 7)
         {
-            winText.text = "You Win!";
-            Debug.Log("Last game scored:" + GetCumulativeReward());
+            AddReward(1f);
+            Debug.Log("collect" + count + "Last game scored:" + GetCumulativeReward());
             Done();
         }
     }
 
+    void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Wall"))
+        {
+            AddReward(-0.001f);
+            //Debug.Log("I hit the wall");
+        }
+    }
+
+    void OnCollisionStay(Collision collision)
+    {
+        if (collision.gameObject.CompareTag("Wall"))
+        {
+            AddReward(-0.001f);
+            //Debug.Log("I am with the wall");
+        }
+
+    }
 }
